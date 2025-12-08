@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Smart Home Monitor</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  </head>
+  <body>
+    <h1>Smart Home Monitor</h1>
+
+    <div>
+      <label
+        >Sensor type:
+        <select id="sensor-type">
+          <option value="temperature">temperature</option>
+          <option value="humidity">humidity</option>
+        </select>
+      </label>
+    </div>
+
+    <canvas id="chart" width="800" height="400"></canvas>
+
+    <script>
+      const ctx = document.getElementById("chart").getContext("2d");
+      let chart;
+
+      async function fetchData() {
+        const sensorType = document.getElementById("sensor-type").value;
+        const res = await fetch(
+          `/api/readings?sensor_type=${sensorType}&minutes=120`
+        );
+        const data = await res.json();
+
+        const labels = data.map((d) => new Date(d.timestamp));
+        const values = data.map((d) => d.value);
+
+        if (!chart) {
+          chart = new Chart(ctx, {
+            type: "line",
+            data: {
+              labels,
+              datasets: [
+                {
+                  label: sensorType,
+                  data: values,
+                },
+              ],
+            },
+            options: {
+              scales: {
+                x: {
+                  type: "time",
+                  time: { unit: "minute" },
+                },
+              },
+            },
+          });
+        } else {
+          chart.data.labels = labels;
+          chart.data.datasets[0].label = sensorType;
+          chart.data.datasets[0].data = values;
+          chart.update();
+        }
+      }
+
+      // hämta initialt
+      fetchData();
+      // uppdatera var 10:e sekund
+      setInterval(fetchData, 10000);
+
+      document
+        .getElementById("sensor-type")
+        .addEventListener("change", fetchData);
+    </script>
+  </body>
+</html>

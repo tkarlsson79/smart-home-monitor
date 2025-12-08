@@ -1,0 +1,78 @@
+# Created by venv; see https://docs.python.org/3/library/venv.html
+
+# ---------------------------
+# Python
+# ---------------------------
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Bytecode caches
+*.pyc
+
+# Virtual environments
+venv/
+.env/
+.venv/
+
+# Poetry
+poetry.lock
+# (ta bort denna rad om du vill ha med lockfilen i git)
+
+# Environment variables
+.env
+*.env
+
+# ---------------------------
+# FastAPI / Uvicorn
+# ---------------------------
+# Logs
+*.log
+logs/
+uvicorn.log
+
+# Static build output (if generated)
+dist/
+build/
+
+# ---------------------------
+# Databases
+# ---------------------------
+*.db
+*.sqlite
+smart_home.db
+smart_home.db-journal
+
+# ---------------------------
+# IDE / Editor configs
+# ---------------------------
+
+# VSCode
+.vscode/
+*.code-workspace
+
+# PyCharm / IntelliJ
+.idea/
+*.iml
+
+# ---------------------------
+# OS files
+# ---------------------------
+.DS_Store
+Thumbs.db
+
+# ---------------------------
+# Other
+# ---------------------------
+# Compiled templates / cache
+*.mo
+*.pot
+
+# C extensions
+*.c
+*.cpp
+
+# MQTT test dumps
+mqtt_dump_*.json

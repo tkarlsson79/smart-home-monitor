@@ -1,0 +1,42 @@
+[tool.poetry]
+name = "smart-home-monitor"
+version = "0.1.0"
+description = "A Python-based Smart Home Monitor using FastAPI, MQTT, and SQLite."
+authors = ["Thomas Karlsson"]
+readme = "README.md"
+packages = [
+    { include = "app" }
+]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+
+# FastAPI backend
+fastapi = "^0.115.0"
+uvicorn = { version = "^0.30.0", extras = ["standard"] }
+
+# Database
+sqlalchemy = "^2.0.0"
+
+# Data models
+pydantic = "^2.8.0"
+
+# MQTT client
+paho-mqtt = "^2.1.0"
+
+# Environment variables
+python-dotenv = "^1.0.0"
+
+# Optional extras (remove if not needed)
+# For time-based charts in frontend API output
+python-dateutil = "^2.9.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.0"
+black = "^24.0.0"
+isort = "^5.12.0"
+flake8 = "^7.0.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
