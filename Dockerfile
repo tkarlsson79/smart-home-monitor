@@ -1,32 +1,24 @@
 FROM python:3.12-slim
 
-# Configure Poetry
-ENV POETRY_VERSION=1.8.3 \
-    POETRY_VIRTUALENVS_CREATE=false \
-    POETRY_NO_INTERACTION=1
-
 WORKDIR /app
 
-# Optional system deps (bra att ha för ev. builds)
+# System-deps (ta bort om du inte behöver bygga native-grejer)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
  && rm -rf /var/lib/apt/lists/*
 
-# Install Poetry
-RUN pip install --no-cache-dir "poetry==${POETRY_VERSION}"
+# Installera Poetry
+RUN pip install --no-cache-dir poetry
 
-# Copy only pyproject (och ev. lock) först
-COPY pyproject.toml /app/
-# COPY poetry.lock /app/   # om du vill använda lock-filen
+# Kopiera in metadata + README (behövs pga readme-fältet i pyproject)
+COPY pyproject.toml poetry.lock* README.md ./
 
-# Install dependencies i *global* env i containern (ingen venv)
-RUN poetry install --no-root --no-ansi
+# Installera dependencies, men inte projektet som paket
+RUN poetry config virtualenvs.create false \
+ && poetry install --no-interaction --no-ansi --no-root
 
-# Copy resten av koden (app, main.py, static, README, osv.)
-COPY . /app
+# Kopiera in resten av koden
+COPY . .
 
-# Exponera FastAPI-porten
-EXPOSE 8000
-
-# Starta appen
-CMD ["poetry", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Starta med hot reload
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

@@ -5,6 +5,8 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: smart-home-api
+    volumes:
+      - .:/app # <--- hot reload fungerar här
     ports:
       - "8000:8000"
     environment:
@@ -19,3 +21,6 @@ services:
     container_name: smart-home-mosquitto
     ports:
       - "1883:1883"
+      - "9001:9001" # websockets utåt
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro

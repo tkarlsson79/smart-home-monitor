@@ -3,74 +3,629 @@
   <head>
     <meta charset="utf-8" />
     <title>Smart Home Monitor</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Date adapter for time scale -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <!-- MQTT.js -->
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+
+    <style>
+      :root {
+        --bg: #0f172a;
+        --bg-card: #111827;
+        --accent: #38bdf8;
+        --accent-soft: #0ea5e9;
+        --text: #e5e7eb;
+        --muted: #9ca3af;
+        --danger: #f97373;
+        --success: #34d399;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+        background: radial-gradient(
+          circle at top,
+          #1e293b 0,
+          #020617 55%,
+          #000 100%
+        );
+        color: var(--text);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      header {
+        padding: 1rem 2rem;
+        border-bottom: 1px solid #1f2937;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        backdrop-filter: blur(8px);
+        background: linear-gradient(
+          to right,
+          rgba(15, 23, 42, 0.95),
+          rgba(15, 23, 42, 0.75)
+        );
+        position: sticky;
+        top: 0;
+        z-index: 10;
+      }
+
+      header h1 {
+        margin: 0;
+        font-size: 1.3rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+
+      header .status {
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+
+      header .status span {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+      }
+
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: var(--success);
+        box-shadow: 0 0 12px rgba(52, 211, 153, 0.8);
+      }
+
+      main {
+        flex: 1;
+        padding: 1.5rem 2rem 2rem;
+        max-width: 1100px;
+        width: 100%;
+        margin: 0 auto;
+      }
+
+      .filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        align-items: flex-end;
+      }
+
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+        min-width: 150px;
+      }
+
+      .field label {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+      }
+
+      select,
+      input {
+        padding: 0.4rem 0.6rem;
+        border-radius: 0.45rem;
+        border: 1px solid #1f2937;
+        background: rgba(15, 23, 42, 0.9);
+        color: var(--text);
+        font-size: 0.9rem;
+      }
+
+      select:focus,
+      input:focus {
+        outline: 1px solid var(--accent-soft);
+        border-color: var(--accent-soft);
+      }
+
+      button {
+        padding: 0.5rem 0.9rem;
+        border-radius: 0.5rem;
+        border: none;
+        background: var(--accent);
+        color: #0b1120;
+        font-weight: 600;
+        cursor: pointer;
+        font-size: 0.9rem;
+        box-shadow: 0 6px 18px rgba(56, 189, 248, 0.35);
+        transition: transform 0.06s ease, box-shadow 0.06s ease,
+          background 0.1s ease;
+      }
+
+      button:hover {
+        background: var(--accent-soft);
+        transform: translateY(-1px);
+        box-shadow: 0 10px 25px rgba(56, 189, 248, 0.5);
+      }
+
+      button:active {
+        transform: translateY(0);
+        box-shadow: 0 4px 12px rgba(56, 189, 248, 0.25);
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 2fr 3fr;
+        gap: 1.5rem;
+      }
+
+      .card {
+        background: radial-gradient(
+            circle at top left,
+            rgba(56, 189, 248, 0.12),
+            transparent 55%
+          ),
+          radial-gradient(
+            circle at bottom right,
+            rgba(59, 130, 246, 0.15),
+            transparent 55%
+          ),
+          var(--bg-card);
+        border-radius: 1rem;
+        padding: 1rem 1.2rem;
+        border: 1px solid rgba(15, 23, 42, 0.8);
+        box-shadow: 0 18px 45px rgba(15, 23, 42, 0.9);
+      }
+
+      .card h2 {
+        margin: 0 0 0.4rem;
+        font-size: 1rem;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+      }
+
+      .metrics {
+        display: flex;
+        flex-direction: column;
+        gap: 0.8rem;
+        margin-top: 0.4rem;
+      }
+
+      .metric-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 0.8rem;
+        border-bottom: 1px dashed rgba(31, 41, 55, 0.8);
+        padding-bottom: 0.3rem;
+      }
+
+      .metric-row:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+      }
+
+      .metric-label {
+        font-size: 0.8rem;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .metric-value {
+        font-size: 1.2rem;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .metric-value.small {
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+
+      .metric-highlight {
+        color: var(--accent);
+      }
+
+      .metric-badge {
+        font-size: 0.7rem;
+        padding: 0.12rem 0.4rem;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+      }
+
+      .metric-badge.ok {
+        border-color: rgba(52, 211, 153, 0.6);
+        color: var(--success);
+      }
+
+      .metric-badge.warn {
+        border-color: rgba(248, 250, 252, 0.6);
+        color: var(--danger);
+      }
+
+      canvas {
+        width: 100% !important;
+        height: 320px !important;
+      }
+
+      .footer-note {
+        margin-top: 1.5rem;
+        font-size: 0.75rem;
+        color: var(--muted);
+        text-align: right;
+      }
+
+      @media (max-width: 900px) {
+        main {
+          padding: 1rem 1.2rem 1.5rem;
+        }
+        .grid {
+          grid-template-columns: 1fr;
+        }
+        canvas {
+          height: 260px !important;
+        }
+      }
+    </style>
   </head>
   <body>
-    <h1>Smart Home Monitor</h1>
+    <header>
+      <h1>Smart Home Monitor</h1>
+      <div class="status">
+        <span><span class="dot"></span>MQTT & API running</span>
+      </div>
+    </header>
 
-    <div>
-      <label
-        >Sensor type:
-        <select id="sensor-type">
-          <option value="temperature">temperature</option>
-          <option value="humidity">humidity</option>
-        </select>
-      </label>
-    </div>
+    <main>
+      <section class="filters">
+        <div class="field">
+          <label for="sensor-type">Sensor type</label>
+          <select id="sensor-type">
+            <option value="temperature">Temperature</option>
+            <option value="humidity">Humidity</option>
+          </select>
+        </div>
 
-    <canvas id="chart" width="800" height="400"></canvas>
+        <div class="field">
+          <label for="device-id">Device / room</label>
+          <input id="device-id" placeholder="e.g. livingroom (optional)" />
+        </div>
+
+        <div class="field">
+          <label for="minutes">Time range (minutes)</label>
+          <input
+            id="minutes"
+            type="number"
+            min="5"
+            max="4320"
+            step="5"
+            value="120"
+          />
+        </div>
+
+        <div class="field">
+          <button id="refresh-btn" type="button">Refresh now</button>
+        </div>
+      </section>
+
+      <section class="grid">
+        <div class="card" id="stats-card">
+          <h2>Current status</h2>
+          <div class="metrics">
+            <div class="metric-row">
+              <div>
+                <div class="metric-label">Latest value</div>
+                <div class="metric-value metric-highlight" id="latest-value">
+                  –
+                </div>
+              </div>
+              <div class="metric-badge" id="value-badge">No data</div>
+            </div>
+
+            <div class="metric-row">
+              <div>
+                <div class="metric-label">Average</div>
+                <div class="metric-value" id="avg-value">–</div>
+              </div>
+              <div class="metric-label">over selected period</div>
+            </div>
+
+            <div class="metric-row">
+              <div>
+                <div class="metric-label">Min / Max</div>
+                <div class="metric-value small" id="minmax-value">–</div>
+              </div>
+            </div>
+
+            <div class="metric-row">
+              <div>
+                <div class="metric-label">Last update</div>
+                <div class="metric-value small" id="last-timestamp">–</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>History</h2>
+          <canvas id="chart"></canvas>
+        </div>
+      </section>
+
+      <div class="footer-note">
+        Data source: /api/readings • Auto-refresh every 10s
+      </div>
+    </main>
 
     <script>
       const ctx = document.getElementById("chart").getContext("2d");
-      let chart;
 
-      async function fetchData() {
-        const sensorType = document.getElementById("sensor-type").value;
-        const res = await fetch(
-          `/api/readings?sensor_type=${sensorType}&minutes=120`
-        );
-        const data = await res.json();
+      const sensorTypeEl = document.getElementById("sensor-type");
+      const deviceIdEl = document.getElementById("device-id");
+      const minutesEl = document.getElementById("minutes");
+      const refreshBtn = document.getElementById("refresh-btn");
 
-        const labels = data.map((d) => new Date(d.timestamp));
-        const values = data.map((d) => d.value);
+      const latestValueEl = document.getElementById("latest-value");
+      const avgValueEl = document.getElementById("avg-value");
+      const minmaxValueEl = document.getElementById("minmax-value");
+      const lastTimestampEl = document.getElementById("last-timestamp");
+      const valueBadgeEl = document.getElementById("value-badge");
 
-        if (!chart) {
-          chart = new Chart(ctx, {
-            type: "line",
-            data: {
-              labels,
-              datasets: [
-                {
-                  label: sensorType,
-                  data: values,
-                },
-              ],
-            },
-            options: {
-              scales: {
-                x: {
-                  type: "time",
-                  time: { unit: "minute" },
-                },
-              },
-            },
-          });
+      let chart = null;
+      let mqttClient = null;
+      let liveBuffer = [];
+      let autoRefreshHandle = null;
+      let isUpdating = false;
+
+      function formatTimestamp(ts) {
+        const d = new Date(ts);
+        return Number.isNaN(d.getTime()) ? "–" : d.toLocaleString();
+      }
+
+      function computeStats(data) {
+        if (!data || data.length === 0) {
+          return {
+            latest: null,
+            avg: null,
+            min: null,
+            max: null,
+            lastTs: null,
+          };
+        }
+
+        let sum = 0;
+        let min = data[0].value;
+        let max = data[0].value;
+        let latest = data[data.length - 1].value;
+        let lastTs = data[data.length - 1].timestamp;
+
+        for (const r of data) {
+          const v = r.value;
+          sum += v;
+          if (v < min) min = v;
+          if (v > max) max = v;
+        }
+
+        return { latest, avg: sum / data.length, min, max, lastTs };
+      }
+
+      function updateStatsUI(stats, sensorType, unitHint) {
+        if (stats.latest === null) {
+          latestValueEl.textContent = "No data";
+          avgValueEl.textContent = "–";
+          minmaxValueEl.textContent = "–";
+          lastTimestampEl.textContent = "–";
+          valueBadgeEl.textContent = "No data";
+          valueBadgeEl.classList.remove("ok", "warn");
+          return;
+        }
+
+        const unit =
+          unitHint ||
+          (sensorType === "temperature"
+            ? "°C"
+            : sensorType === "humidity"
+            ? "%"
+            : "");
+
+        latestValueEl.textContent = `${stats.latest.toFixed(1)} ${unit}`;
+        avgValueEl.textContent = `${stats.avg.toFixed(1)} ${unit}`;
+        minmaxValueEl.textContent = `${stats.min.toFixed(
+          1
+        )} – ${stats.max.toFixed(1)} ${unit}`;
+        lastTimestampEl.textContent = formatTimestamp(stats.lastTs);
+
+        if (sensorType === "temperature") {
+          if (stats.latest < 16 || stats.latest > 27) {
+            valueBadgeEl.textContent = "Out of comfort range";
+            valueBadgeEl.classList.remove("ok");
+            valueBadgeEl.classList.add("warn");
+          } else {
+            valueBadgeEl.textContent = "Comfort range";
+            valueBadgeEl.classList.remove("warn");
+            valueBadgeEl.classList.add("ok");
+          }
         } else {
-          chart.data.labels = labels;
-          chart.data.datasets[0].label = sensorType;
-          chart.data.datasets[0].data = values;
-          chart.update();
+          valueBadgeEl.textContent = "Live";
+          valueBadgeEl.classList.remove("warn");
+          valueBadgeEl.classList.add("ok");
         }
       }
 
-      // hämta initialt
-      fetchData();
-      // uppdatera var 10:e sekund
-      setInterval(fetchData, 10000);
+      async function fetchData() {
+        const sensorType = sensorTypeEl.value;
+        const deviceId = deviceIdEl.value.trim();
+        const minutes = parseInt(minutesEl.value, 10) || 60;
 
-      document
-        .getElementById("sensor-type")
-        .addEventListener("change", fetchData);
+        const params = new URLSearchParams();
+        params.set("sensor_type", sensorType);
+        params.set("minutes", minutes.toString());
+        if (deviceId) params.set("device_id", deviceId);
+
+        const res = await fetch(`/api/readings?${params.toString()}`);
+        return res.ok ? await res.json() : [];
+      }
+
+      async function updateDashboard() {
+        if (isUpdating) return;
+        isUpdating = true;
+
+        try {
+          const sensorType = sensorTypeEl.value;
+          const data = await fetchData();
+
+          const labels = data.map((d) => new Date(d.timestamp));
+          const values = data.map((d) => d.value);
+          const unit = data[0]?.unit || "";
+
+          if (!chart) {
+            chart = new Chart(ctx, {
+              type: "line",
+              data: {
+                labels,
+                datasets: [
+                  {
+                    label: sensorType,
+                    data: values,
+                    tension: 0.25,
+                    borderWidth: 2,
+                    pointRadius: 0,
+                  },
+                ],
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                  x: {
+                    type: "time",
+                    time: { unit: "minute" },
+                    ticks: { color: "#9ca3af" },
+                    grid: { color: "rgba(31,41,55,0.7)" },
+                  },
+                  y: {
+                    ticks: { color: "#e5e7eb" },
+                    grid: { color: "rgba(31,41,55,0.35)" },
+                  },
+                },
+                plugins: {
+                  legend: {
+                    labels: { color: "#e5e7eb" },
+                  },
+                },
+              },
+            });
+          } else {
+            chart.data.labels = labels;
+            chart.data.datasets[0].data = values;
+            chart.data.datasets[0].label = sensorType;
+            chart.update();
+          }
+
+          updateStatsUI(computeStats(data), sensorType, unit);
+        } catch (err) {
+          console.error("updateDashboard failed", err);
+        } finally {
+          isUpdating = false;
+        }
+      }
+
+      function applyLiveUpdate() {
+        if (!chart) return;
+
+        const currentType = sensorTypeEl.value;
+        const deviceFilter = deviceIdEl.value.trim().toLowerCase();
+
+        // ta bara de nya punkterna som matchar sensor-typ och ev. device-filter
+        const newPoints = liveBuffer.filter((p) => {
+          if (p.sensor_type !== currentType) return false;
+
+          if (deviceFilter) {
+            const dev = (p.device_id || "").toLowerCase();
+            if (!dev.includes(deviceFilter)) return false;
+          }
+          return true;
+        });
+
+        liveBuffer = [];
+
+        if (newPoints.length === 0) return;
+
+        for (const p of newPoints) {
+          chart.data.labels.push(new Date(p.timestamp));
+          chart.data.datasets[0].data.push(p.value);
+        }
+
+        chart.update("none");
+      }
+
+      function connectMqtt() {
+        mqttClient = mqtt.connect("ws://localhost:9001", {
+          clientId: "dashboard-" + Math.random().toString(16).slice(2),
+          clean: true,
+        });
+
+        mqttClient.on("connect", () => {
+          console.log("MQTT connected via WebSocket");
+          mqttClient.subscribe("home/sensors/#", (err, granted) => {
+            if (err) {
+              console.error("MQTT subscribe error", err);
+            } else {
+              console.log("MQTT subscribed:", granted);
+            }
+          });
+        });
+
+        mqttClient.on("message", (topic, message) => {
+          console.log("MQTT message:", topic, message.toString());
+          try {
+            const data = JSON.parse(message.toString());
+            liveBuffer.push({
+              device_id: data.device_id || "unknown",
+              sensor_type: data.sensor_type || "unknown",
+              value: Number(data.value),
+              unit: data.unit || "",
+              timestamp: new Date().toISOString(),
+            });
+
+            const currentType = sensorTypeEl.value;
+            if (data.sensor_type === currentType) {
+              applyLiveUpdate();
+            }
+          } catch (e) {
+            console.error("Failed to parse MQTT payload", e);
+          }
+        });
+
+        mqttClient.on("error", (err) => {
+          console.error("MQTT error", err);
+        });
+      }
+
+      function setupAutoRefresh() {
+        if (autoRefreshHandle) {
+          clearInterval(autoRefreshHandle);
+        }
+        autoRefreshHandle = setInterval(updateDashboard, 10000);
+      }
+
+      // INIT
+      refreshBtn.addEventListener("click", updateDashboard);
+      sensorTypeEl.addEventListener("change", updateDashboard);
+
+      updateDashboard();
+      setupAutoRefresh();
+      connectMqtt();
     </script>
   </body>
 </html>
