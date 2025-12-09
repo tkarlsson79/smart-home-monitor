@@ -6,14 +6,19 @@ from datetime import datetime, timedelta
 
 from .database import get_db
 from . import models, schemas
+from app.models import SensorReading as Reading
 
 router = APIRouter()
 
 @router.get("/devices", response_model=list[str])
 def get_devices(db: Session = Depends(get_db)):
-    rows = db.query(Reading.device_id).distinct().all()
-    # rows är typ [(device_id1,), (device_id2,), ...]
-    return [r[0] for r in rows if r[0] is not None]
+    q = (
+        db.query(Reading.device_id)
+        .filter(Reading.device_id.isnot(None))
+        .filter(Reading.device_id != "")
+        .distinct()
+    )
+    return [row[0] for row in q]
 
 @router.get("/readings", response_model=List[schemas.SensorReadingRead])
 def get_readings(
