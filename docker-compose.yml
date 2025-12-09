@@ -1,15 +1,21 @@
 version: "3.9"
 services:
   api:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: smart-home-api
     ports:
       - "8000:8000"
     environment:
       - MQTT_BROKER_HOST=mosquitto
+      - MQTT_BROKER_PORT=1883
+      - MQTT_TOPIC=home/sensors/#
     depends_on:
       - mosquitto
 
   mosquitto:
     image: eclipse-mosquitto:2
+    container_name: smart-home-mosquitto
     ports:
       - "1883:1883"

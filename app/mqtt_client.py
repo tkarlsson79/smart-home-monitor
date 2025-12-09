@@ -1,14 +1,16 @@
 # app/mqtt_client.py
 import json
 import threading
+import time
 import paho.mqtt.client as mqtt
-from .config import MQTT_BROKER_HOST, MQTT_BROKER_PORT, MQTT_TOPIC
+from .config import MQTT_BROKER_HOST, MQTT_BROKER_PORT
 from .database import SessionLocal
 from .models import SensorReading
 
 
 def on_connect(client, userdata, flags, rc, properties=None):
     print("Connected to MQTT broker with result code", rc)
+    from .config import MQTT_TOPIC
     client.subscribe(MQTT_TOPIC)
 
 
@@ -38,13 +40,25 @@ def on_message(client, userdata, msg):
         print("Error processing MQTT message:", e)
 
 
-def start_mqtt_client():
+def _mqtt_loop():
+    """Background-thread som försöker ansluta, med retries."""
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     client.on_connect = on_connect
     client.on_message = on_message
 
-    client.connect(MQTT_BROKER_HOST, MQTT_BROKER_PORT, 60)
+    while True:
+        try:
+            print(f"Trying to connect to MQTT broker {MQTT_BROKER_HOST}:{MQTT_BROKER_PORT} ...")
+            client.connect(MQTT_BROKER_HOST, MQTT_BROKER_PORT, 60)
+            print("MQTT connected, entering loop_forever()")
+            client.loop_forever()
+        except Exception as e:
+            print(f"MQTT connection failed: {e}. Retrying in 5 seconds...")
+            time.sleep(5)
 
-    thread = threading.Thread(target=client.loop_forever, daemon=True)
+
+def start_mqtt_client():
+    """Starta MQTT-klienten i en bakgrundstråd utan att krascha FastAPI om connect failar."""
+    thread = threading.Thread(target=_mqtt_loop, daemon=True)
     thread.start()
-    return client
+    return thread

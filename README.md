@@ -15,9 +15,10 @@ It uses FastAPI as the backend API, SQLite for storage, MQTT for ingesting senso
 - Suitable for Raspberry Pi, local servers, or home lab environments
 
 ---
-## Flow
-MQTT Sensor → MQTT Broker → Python MQTT Client → SQLite Database → FastAPI API → Web Dashboard
 
+## Flow
+
+MQTT Sensor → MQTT Broker → Python MQTT Client → SQLite Database → FastAPI API → Web Dashboard
 
 ## Roadmap
 
@@ -29,10 +30,13 @@ MQTT Sensor → MQTT Broker → Python MQTT Client → SQLite Database → FastA
 - Optional Docker deployment setup
 
 ---
+
 ## License
+
 This project is licensed under the MIT License.
 
 ---
+
 ## Installation
 
 ### 1. Clone the repository
@@ -45,8 +49,12 @@ poetry install
 ```
 
 ### 2 Configure
-.env
+
+.env-file
+
+```code
 MQTT_BROKER_HOST=localhost
 MQTT_BROKER_PORT=1883
 MQTT_TOPIC=home/sensors/#
 DATABASE_URL=sqlite:///./smart_home.db
+```
