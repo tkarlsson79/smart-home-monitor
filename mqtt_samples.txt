@@ -1,0 +1,14 @@
+mosquitto_pub -h localhost -t home/sensors/bedroom/temperature -m \
+'{"device_id": "bedroom_1", "sensor_type": "temperature", "value": 23.7, "unit": "°C"}'
+
+
+mosquitto_pub -h localhost -t home/sensors/bedroom/temperature -m \
+'{"device_id": "bedroom_2", "sensor_type": "temperature", "value": 25.7, "unit": "°C"}'
+
+
+mosquitto_pub -h localhost -t home/sensors/kitchen/temperature -m \
+'{"device_id": "kitchen", "sensor_type": "temperature", "value": 24.7, "unit": "°C"}'
+
+
+mosquitto_pub -h localhost -t home/sensors/livingroom/temperature -m \
+'{"device_id": "livingroom_1", "sensor_type": "temperature", "value": 22.7, "unit": "°C"}'

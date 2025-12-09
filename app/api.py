@@ -9,6 +9,11 @@ from . import models, schemas
 
 router = APIRouter()
 
+@router.get("/devices", response_model=list[str])
+def get_devices(db: Session = Depends(get_db)):
+    rows = db.query(Reading.device_id).distinct().all()
+    # rows är typ [(device_id1,), (device_id2,), ...]
+    return [r[0] for r in rows if r[0] is not None]
 
 @router.get("/readings", response_model=List[schemas.SensorReadingRead])
 def get_readings(
