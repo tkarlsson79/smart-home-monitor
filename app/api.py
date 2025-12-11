@@ -2,7 +2,7 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from .database import get_db
 from . import models, schemas
@@ -30,7 +30,7 @@ def get_readings(
     """
     Hämta senaste readings, default sista 60 minuterna.
     """
-    since = datetime.utcnow() - timedelta(minutes=minutes)
+    since = datetime.now(timezone.utc) - timedelta(minutes=minutes)
     query = db.query(models.SensorReading).filter(models.SensorReading.timestamp >= since)
 
     if sensor_type:
