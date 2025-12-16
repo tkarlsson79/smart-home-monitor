@@ -1,6 +1,8 @@
 # app/models.py
+from time import timezone
+from annotated_types import T
 from sqlalchemy import Column, Integer, String, Float, DateTime
-from datetime import datetime
+from datetime import datetime, timezone
 from .database import Base
 
 
@@ -12,4 +14,4 @@ class SensorReading(Base):
     sensor_type = Column(String, index=True)  # e.g. temperature, humidity
     value = Column(Float)
     unit = Column(String)  # e.g. "°C", "%"
-    timestamp = Column(DateTime, default=datetime.utcnow, index=True)
+    timestamp = Column(DateTime, default=datetime.now(timezone.utc), index=True)

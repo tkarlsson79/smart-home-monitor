@@ -389,6 +389,9 @@
       let autoRefreshHandle = null;
       let isUpdating = false;
 
+      let liveScheduled = false;
+      let liveFlushTimer = null;
+
       function formatTimestamp(ts) {
         const d = new Date(ts);
         return Number.isNaN(d.getTime()) ? "–" : d.toLocaleString();
@@ -562,13 +565,13 @@
           isUpdating = false;
         }
       }
+
       function applyLiveUpdate() {
         if (!chart) return;
 
         const currentType = sensorTypeEl.value;
         const deviceFilter = deviceIdEl.value.trim().toLowerCase();
 
-        // ta bara de nya punkterna som matchar sensor-typ och ev. device-filter
         const newPoints = liveBuffer.filter((p) => {
           if (p.sensor_type !== currentType) return false;
 
@@ -580,12 +583,30 @@
         });
 
         liveBuffer = [];
-
         if (newPoints.length === 0) return;
 
+        // Se till att dataset finns
+        const ds = chart.data.datasets[0];
+        if (!ds) return;
+
         for (const p of newPoints) {
-          chart.data.labels.push(new Date(p.timestamp));
-          chart.data.datasets[0].data.push(p.value);
+          const x =
+            p.timestamp instanceof Date ? p.timestamp : new Date(p.timestamp);
+          const y = Number(p.value);
+
+          // Skippa trasiga values
+          if (Number.isNaN(x.getTime()) || Number.isNaN(y)) continue;
+
+          ds.data.push({ x, y });
+        }
+
+        // Sortera efter tid (viktigt om MQTT kan komma lite “out of order”)
+        ds.data.sort((a, b) => a.x - b.x);
+
+        // Begränsa mängden punkter så grafen inte växer för evigt
+        const MAX_POINTS = 2000;
+        if (ds.data.length > MAX_POINTS) {
+          ds.data = ds.data.slice(ds.data.length - MAX_POINTS);
         }
 
         chart.update("none");
@@ -613,13 +634,23 @@
           try {
             const data = JSON.parse(message.toString());
 
+            let ts;
+            if (typeof data.timestamp === "number") {
+              // sekunder -> millisekunder
+              ts = new Date(data.timestamp * 1000);
+            } else if (typeof data.timestamp === "string") {
+              ts = new Date(data.timestamp);
+            } else {
+              ts = new Date(); // fallback
+            }
+
             // --- 1) Lägg till i liveBuffer ---
             liveBuffer.push({
               device_id: data.device_id || "unknown",
               sensor_type: data.sensor_type || "unknown",
               value: Number(data.value),
               unit: data.unit || "",
-              timestamp: new Date().toISOString(),
+              timestamp: ts,
             });
 
             // --- 2) Uppdatera device-dropdown om ny device dyker upp ---
@@ -646,7 +677,7 @@
             // --- 3) Trigga live-uppdatering av grafen om rätt sensortyp ---
             const currentType = sensorTypeEl.value;
             if (data.sensor_type === currentType) {
-              applyLiveUpdate();
+              scheduleLiveUpdate();
             }
           } catch (e) {
             console.error("Failed to parse MQTT payload", e);
@@ -658,98 +689,21 @@
         });
       }
 
-      /*function applyLiveUpdate() {
-        if (!chart) return;
-
-        const currentType = sensorTypeEl.value;
-        const deviceFilter = deviceIdEl.value.trim().toLowerCase();
-
-        // ta bara de nya punkterna som matchar sensor-typ och ev. device-filter
-        const newPoints = liveBuffer.filter((p) => {
-          if (p.sensor_type !== currentType) return false;
-
-          if (deviceFilter) {
-            const dev = (p.device_id || "").toLowerCase();
-            if (!dev.includes(deviceFilter)) return false;
-          }
-          return true;
-        });
-
-        liveBuffer = [];
-
-        if (newPoints.length === 0) return;
-
-        for (const p of newPoints) {
-          chart.data.labels.push(new Date(p.timestamp));
-          chart.data.datasets[0].data.push(p.value);
-        }
-
-        chart.update("none");
-      }
-
-      function connectMqtt() {
-        mqttClient = mqtt.connect("ws://localhost:9001", {
-          clientId: "dashboard-" + Math.random().toString(16).slice(2),
-          clean: true,
-        });
-
-        mqttClient.on("connect", () => {
-          console.log("MQTT connected via WebSocket");
-          mqttClient.subscribe("home/sensors/#", (err, granted) => {
-            if (err) {
-              console.error("MQTT subscribe error", err);
-            } else {
-              console.log("MQTT subscribed:", granted);
-            }
-          });
-        });
-
-        mqttClient.on("message", (topic, message) => {
-          const deviceSelect = document.getElementById("device-id");
-
-          // Om en ny device dyker upp -> lägg till i dropdown
-          if (data.device_id) {
-            const exists = [...deviceSelect.options].some(
-              (o) => o.value === data.device_id
-            );
-            if (!exists) {
-              const opt = document.createElement("option");
-              opt.value = data.device_id;
-              opt.textContent = data.device_id;
-              deviceSelect.appendChild(opt);
-            }
-          }
-
-          console.log("MQTT message:", topic, message.toString());
-          try {
-            const data = JSON.parse(message.toString());
-            liveBuffer.push({
-              device_id: data.device_id || "unknown",
-              sensor_type: data.sensor_type || "unknown",
-              value: Number(data.value),
-              unit: data.unit || "",
-              timestamp: new Date().toISOString(),
-            });
-
-            const currentType = sensorTypeEl.value;
-            if (data.sensor_type === currentType) {
-              applyLiveUpdate();
-            }
-          } catch (e) {
-            console.error("Failed to parse MQTT payload", e);
-          }
-        });
-
-        mqttClient.on("error", (err) => {
-          console.error("MQTT error", err);
-        });
-      }
-*/
       function setupAutoRefresh() {
         if (autoRefreshHandle) {
           clearInterval(autoRefreshHandle);
         }
         autoRefreshHandle = setInterval(updateDashboard, 10000);
+      }
+
+      function scheduleLiveUpdate() {
+        if (liveScheduled) return;
+        liveScheduled = true;
+
+        requestAnimationFrame(() => {
+          applyLiveUpdate();
+          liveScheduled = false;
+        });
       }
 
       // INIT

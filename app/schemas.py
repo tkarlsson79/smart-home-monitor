@@ -9,10 +9,8 @@ class SensorReadingBase(BaseModel):
     value: float
     unit: str
 
-
 class SensorReadingCreate(SensorReadingBase):
     pass
-
 
 class SensorReadingRead(SensorReadingBase):
     id: int

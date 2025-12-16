@@ -1,6 +1,8 @@
 # app/mqtt_client.py
 import json
+from sqlite3.dbapi2 import Timestamp
 import threading
+from datetime import datetime, timezone
 import time
 import paho.mqtt.client as mqtt
 from .config import MQTT_BROKER_HOST, MQTT_BROKER_PORT
@@ -24,21 +26,44 @@ def on_message(client, userdata, msg):
         sensor_type = data.get("sensor_type", "unknown")
         value = float(data.get("value"))
         unit = data.get("unit", "")
+        
+        # --- TIMESTAMP-HANTERING --- #
+        raw_ts = data.get("timestamp")
+        ts: datetime
 
+        if isinstance(raw_ts, (int, float)):
+            # UNIX-sekunder → datetime (UTC)
+            ts = datetime.fromtimestamp(raw_ts, tz=timezone.utc)
+        elif isinstance(raw_ts, str):
+            # ISO-sträng
+            try:
+                # hantera "Z" på slutet
+                ts = datetime.fromisoformat(
+                    raw_ts.replace("Z", "+00:00")
+                )
+            except ValueError:
+                ts = datetime.now(timezone.utc)
+        else:
+            # fallback: tid vid mottagning
+            ts = datetime.now(timezone.utc)
+            
         db = SessionLocal()
         reading = SensorReading(
             device_id=device_id,
             sensor_type=sensor_type,
             value=value,
             unit=unit,
+            timestamp=ts,
         )
         db.add(reading)
         db.commit()
         db.refresh(reading)
-        db.close()
+    
     except Exception as e:
         print("Error processing MQTT message:", e)
 
+    finally:
+        db.close()
 
 def _mqtt_loop():
     """Background-thread som försöker ansluta, med retries."""
@@ -58,7 +83,7 @@ def _mqtt_loop():
 
 
 def start_mqtt_client():
-    """Starta MQTT-klienten i en bakgrundstråd utan att krascha FastAPI om connect failar."""
-    thread = threading.Thread(target=_mqtt_loop, daemon=True)
-    thread.start()
-    return thread
+   """Starta MQTT-klienten i en bakgrundstråd utan att krascha FastAPI om connect failar."""
+   thread = threading.Thread(target=_mqtt_loop, daemon=True)
+   thread.start()
+   return thread
